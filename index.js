@@ -93,7 +93,7 @@ async function iniciarBot() {
     const { state, saveCreds } = await useMultiFileAuthState('sessao_family');
     const sock = makeWASocket({ 
         auth: state, 
-        printQRInTerminal: false,
+        printQRInTerminal: true,
         logger: (await import('pino')).default({ level: 'silent' })
     });
     const testesPendentesDeDispositivo = new Map();
