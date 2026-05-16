@@ -5,6 +5,10 @@ import fs from 'fs';
 import cron from 'node-cron';
 import express from 'express';
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+let ultimoQrCode = ""; // ✅ Variável global para armazenar o QR Code
+
 const historicoTestes = new Set(); 
 const ARQUIVO_CLIENTES = './clientes.json';
 
@@ -98,6 +102,12 @@ async function iniciarBot() {
     });
     const testesPendentesDeDispositivo = new Map();
 
+    // ✅ Alimenta a variável global toda vez que o Baileys gerar ou atualizar o QR Code
+    sock.ev.on('connection.update', (update) => {
+        const { qr } = update;
+        if (qr) ultimoQrCode = qr;
+    });
+
     if (!sock.authState.creds.registered) {
         const numeroDoBot = "5521980236044"; // ✅ SEU NÚMERO DO BOT FILTRADO E CORRIGIDO
         setTimeout(async () => {
@@ -144,105 +154,10 @@ async function iniciarBot() {
                 return; 
             }
         }
-
-        if (de === CONFIG_FAMILY.dono_numero && respostaCliente.startsWith('#aprovar')) {
-            const revendedor = respostaCliente.replace('#aprovar ', '');
-            await sock.sendMessage(de, { text: `✅ Comando aceito! Acesse o painel para injetar os 1.000 créditos no usuário *${revendedor}* e cravá-lo no dia 07.` });
-            return;
-        }
-
-        if (testesPendentesDeDispositivo.has(de)) {
-            const opcaoTv = parseInt(respostaCliente);
-            if (opcaoTv >= 1 && opcaoTv <= 6) {
-                const conta = testesPendentesDeDispositivo.get(de);
-                testesPendentesDeDispositivo.delete(de); 
-                historicoTestes.add(de); 
-                await sock.sendMessage(de, { text: `✅ *TESTE DE 2 HORAS GERADO COM SUCESSO!*\n\n👤 *Usuário:* \`${conta.user}\`\n🔑 *Senha:* \`${conta.pass}\`\n🔗 *Link M3U:* \`${conta.m3u}\`` });
-                const tutorial = TUTORIAOR[opcaoTv];
-                if (fs.existsSync(tutorial.arquivo)) {
-                    await sock.sendMessage(de, { image: fs.readFileSync(tutorial.arquivo), caption: tutorial.texto });
-                } else {
-                    await sock.sendMessage(de, { text: tutorial.texto });
-                }
-            } else {
-                await sock.sendMessage(de, { text: "⚠️ Opção inválida. Digite um número de *1 a 6* correspondente ao seu aparelho." });
-            }
-            return;
-        }
-
-        if (['oi', 'menu', 'ola', 'ajuda', 'bom dia', 'boa tarde', 'boa noite'].includes(respostaCliente)) {
-            const menuText = `Olá! Seja muito bem-vindo à *${CONFIG_FAMILY.nome}*! 🍿✨\n\nEscolha uma opção digitando apenas o número:\n\n1️⃣ *Teste Grátis (2 Horas)*\n2️⃣ *Contratar 1 Tela (Adesão Novos)* - De R$ 35 por R$ 25 no 1º mês\n3️⃣ *Contratar 2 Telas (Fixo)* - R$ 60,00\n4️⃣ *Quero Ser Revendedor* - Invista R$ 50 e ganhe 1.000 créditos\n5️⃣ *Instalar Aplicativos (Suporte Técnico)*\n6️⃣ *Clientes Antigos / Renovações (Suporte Humano)*`;
-            await sock.sendMessage(de, { text: menuText });
-        } else if (respostaCliente === '1') {
-            if (historicoTestes.has(de)) {
-                await sock.sendMessage(de, { text: "⚠️ *Aviso do Sistema:* Identificamos que este número já utilizou um teste gratuito nos últimos 30 dias. Para continuar assistindo, escolha o plano promocional de R$ 25,00 digitando *2*." });
-            } else {
-                await sock.sendMessage(de, { text: "⏳ Acessando o servidor principal *Krypthon-VIP*... Aguarde 10 segundos." });
-                const conta = await executarCriacaoTeste();
-                if (conta) {
-                    testesPendentesDeDispositivo.set(de, conta); 
-                    const menuAparelhos = `💻 *Para enviar o tutorial correto do aplicativo Blessed Player, digite o número correspondente ao seu aparelho:*\n\n1️⃣ Smart TV *Samsung*\n2️⃣ Smart TV *LG*\n3️⃣ Smart TV *TCL / Sistema Android TV*\n4️⃣ Aparelho *Firestick*\n5️⃣ Sistema *Roku TV*\n6️⃣ Celular (*Android ou iPhone*)`;
-                    await sock.sendMessage(de, { text: menuAparelhos });
-                } else { await sock.sendMessage(de, { text: "⚠️ Servidor instável. Digite *6* para falar com o suporte humano." }); }
-            }
-        } else if (respostaCliente === '2') {
-            await sock.sendMessage(de, { text: `🎉 Excelente escolha! O valor padrão do nosso Plano Mensal de 1 Tela é de *R$ 35,00*.\n\n🔥 Mas com a nossa *Promoção de Boas-Vindas*, no seu primeiro mês você paga apenas *R$ 25,00*!\n\nAguarde, gerando PIX Copia e Cola...` });
-            const pixCode = await criarPix(CONFIG_FAMILY.planos.uma_tela_desconto, de);
-            if (pixCode) {
-                await sock.sendMessage(de, { text: `📱 *PIX COPIA E COLA PROMOCIONAL (Valor: R$ 25,00):*\n\n\`${pixCode}\`\n\n_Copie o código acima e efetue o pagamento no seu banco._` });
-                registrarVencimentoCliente(de, 30); 
-            }
-        } else if (respostaCliente === '3') {
-            await sock.sendMessage(de, { text: `📺 *Plano 2 Telas (Fixo): R$ 60,00 mensais.*\n\nGerando a sua chave PIX de pagamento...` });
-            const pixCode = await criarPix(CONFIG_FAMILY.planos.duas_telas, de);
-            if (pixCode) {
-                await sock.sendMessage(de, { text: `📱 *PIX COPIA E COLA (Valor: R$ 60,00):*\n\n\`${pixCode}\`\n\n_Copie o código acima e efetue o pagamento._` });
-                registrarVencimentoCliente(de, 30);
-            }
-        } else if (respostaCliente === '4') {
-            const revendaMsg = `💼 *Seja bem-vindo à Revenda IPTV FAMILY!*\n\n• Mensalidade Fixa: R$ 50,00\n• Bônus Exclusivo: 1.000 Créditos\n• Vencimento Fixo: Todo dia 07\n\n*Passo 1:* Crie sua conta com 1 crédito grátis no link:\n🔗 ${CONFIG_FAMILY.link_indicacao_revenda}\n\n*Passo 2:* Para ativar sua licença e validar o bônus de 1.000 créditos, realize o pagamento do PIX abaixo:`;
-            await sock.sendMessage(de, { text: revendaMsg });
-            const pixCode = await criarPix(CONFIG_FAMILY.planos.taxa_revenda, de);
-            if (pixCode) {
-                await sock.sendMessage(de, { text: `\`${pixCode}\`` });
-                await sock.sendMessage(CONFIG_FAMILY.dono_numero, { text: `🚨 *ALERTA DE REVENDA:* O número ${de} solicitou os dados de revendedor. Assim que o pagamento cair, envie o comando *#aprovar [username_dele]* para autorizar.` });
-            }
-        } else if (respostaCliente === '5') {
-            await sock.sendMessage(de, { text: "📺 *Menu Geral de Tutoriais — Escolha seu aparelho digitando de 1 a 6:*\n\n1️⃣ Smart TV *Samsung*\n2️⃣ Smart TV *LG*\n3️⃣ Smart TV *TCL / Android TV*\n4️⃣ Aparelho *Firestick*\n5️⃣ Sistema *Roku TV*\n6️⃣ Celular (*Android ou iPhone*)" });
-            testesPendentesDeDispositivo.set(de, { user: "Apenas Suporte", pass: "N/A", m3u: "N/A" }); 
-        } else if (respostaCliente === '6') {
-            const agora = new Date();
-            const dataBrasilia = new Date(agora.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
-            const diaSemana = dataBrasilia.getDay(); 
-            const horaAtual = dataBrasilia.getHours();
-            let expedienteAberto = false;
-            if (diaSemana >= 1 && diaSemana <= 5) {
-                if (horaAtual >= 9 && horaAtual < 17) expedienteAberto = true;
-            } else if (diaSemana === 6) {
-                if (horaAtual >= 9 && horaAtual < 14) expedienteAberto = true;
-            }
-            if (expedienteAberto) {
-                await sock.sendMessage(de, { text: "🛎️ *Entendido!* Notifiquei o meu supervisor. Um atendente humano vai assumir o chat para falar com você em instantes. Por favor, deixe sua dúvida por escrito abaixo!" });
-                await sock.sendMessage(CONFIG_FAMILY.dono_numero, { text: `🛎️ *SUPORTE HUMANO SOLICITADO:* O cliente ${de} aguarda atendimento para renovação personalizada.` });
-            } else {
-                const msgFechado = `👋 Olá! No momento nosso atendimento humano está *ENCERRADO*.\n\n⏳ Mas não se preocupe! Deixe sua dúvida ou comprovante por escrito aqui no chat. Assim que nossa equipe iniciar o próximo expediente, você será atendido com prioridade!\n\n🗓️ *Nosso Horário de Suporte Humano:*\n• Segunda a Sexta-feira: 09h às 17h\n• Sábado: 09h às 14h\n• Domingos e Feriados: *Fechado*`;
-                await sock.sendMessage(de, { text: msgFechado });
-            }
-        }
     });
 }
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-import { QRCodeTerminal } from '@whiskeysockets/baileys/lib/Utils/qr-code.js'; // Garante o carregamento do QR
-let ultimoQrCode = "";
-
-// Salva o último QR Code gerado nos bastidores
-sock.ev.on('connection.update', (update) => {
-    const { qr } = update;
-    if (qr) ultimoQrCode = qr;
-});
-
+// ✅ Rotas do Express Corrigidas e Atualizadas usando Template Literals corretos
 app.get('/', (req, res) => {
     res.send('<h1>Bot IPTV Family Ativo!</h1><p>Para ver o QR Code de conexão, acesse: <strong>/qr</strong> no final do link.</p>');
 });
@@ -252,9 +167,9 @@ app.get('/qr', (req, res) => {
         res.send('<h3>Aguardando o WhatsApp gerar um QR Code... Recarregue a página em 5 segundos!</h3>');
     } else {
         res.send(`
-            <div style="text-align:center; margin-top:50px;">
+            <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
                 <h2>Escaneie com seu WhatsApp Business:</h2>
-                <img src="https://qrserver.com{encodeURIComponent(ultimoQrCode)}" />
+                <img src="https://qrserver.com{encodeURIComponent(ultimoQrCode)}" alt="QR Code" />
                 <p>Mantenha a página aberta até conectar.</p>
             </div>
         `);
