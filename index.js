@@ -35,7 +35,7 @@ const CONFIG_FAMILY = {
     mercado_pago_token: "APP_USR-7834190256108432-051520-b4618e74a129dca3e512cda47b19810f-184920153" 
 };
 
-// ✅ TUTORIAIS CONFIGURADOS COM LINKS DA INTERNET PARA NÃO TRAVAR O SERVER
+// TUTORIAIS CONFIGURADOS COM LINKS DA INTERNET PARA NÃO TRAVAR O SERVER
 const TUTORIAIS = {
     1: { texto: "📺 *COMO INSTALAR NA SUA TV SAMSUNG:*\n\n1️⃣ Abra a loja de aplicativos da sua TV Samsung.\n2️⃣ Pesquise por: *Blessed Player* e clique em Instalar.\n\n⚠️ *Caso não encontre na loja:* \nInstale via Pen Drive:\n• Baixe o arquivo no PC pelo link: \`fui.ai/blessedsamsung\`\n• Extraia os arquivos dentro do Pen Drive.\n• Conecte o Pen Drive na entrada USB da sua TV Samsung.", url_imagem: "https://sua-url-aqui.com" },
     2: { texto: "📺 *COMO INSTALAR NA SUA TV LG:*\n\n1️⃣ Abra a *Loja de APPs* (LG Content Store) na sua TV.\n2️⃣ Clique na barra de pesquisa (ícone de lupa).\n3️⃣ Pesquise exatamente por: *Blessed Player*.\n4️⃣ Selecione o aplicativo e clique no botão *Instalar*.", url_imagem: "https://sua-url-aqui.com" },
@@ -54,31 +54,9 @@ function registrarVencimentoCliente(whatsapp, dias = 30) {
     fs.writeFileSync(ARQUIVO_CLIENTES, JSON.stringify(listaFiltrada, null, 2));
 }
 
+// ✅ Modificado temporariamente para não quebrar o Railway sem navegador
 async function executarCriacaoTeste() {
-    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const page = await browser.newPage();
-    try {
-        await page.goto(CONFIG_FAMILY.servidores.principal, { waitUntil: 'networkidle2' });
-        await page.type('input[type="text"]', 'family_24h_vendas'); 
-        await page.type('input[type="password"]', 'KrypthonMaster2024@'); 
-        await page.click('button[type="submit"]');
-        await page.waitForNavigation();
-        await page.goto(`${CONFIG_FAMILY.servidores.principal}#/customers/create-test`);
-        await page.waitForSelector('.btn-generate-test');
-        await page.click('.btn-generate-test');
-        const dados = await page.evaluate(() => {
-            return {
-                user: document.querySelector('.username')?.innerText || "Erro",
-                pass: document.querySelector('.password')?.innerText || "Erro",
-                m3u: document.querySelector('.m3u-link')?.innerText || "Erro"
-            };
-        });
-        await browser.close();
-        return dados;
-    } catch (e) {
-        await browser.close();
-        return null;
-    }
+    return null;
 }
 
 async function criarPix(valor, idCliente) {
@@ -124,7 +102,7 @@ async function iniciarBot() {
             if (cliente.vencimento === dataAlvoStr) {
                 const pixCode = await criarPix(CONFIG_FAMILY.planos.uma_tela_normal, cliente.whatsapp);
                 if (pixCode) {
-                    const textAlerta = `⚠️ *AVISO DE VENCIMENTO IPTV FAMILY* ⚠️\n\nOlá! Passando para lembrar que o seu acesso mensal de 1 tela vence em *3 dias*.\n\nPara renovar seu sinal antecipadamente por mais 30 dias e evitar o bloqueio automático, use the código *PIX Copia e Cola* padrão de *R$ 35,00* abaixo:`;
+                    const textAlerta = `⚠️ *AVISO DE VENCIMENTO IPTV FAMILY* ⚠️\n\nOlá! Passando para lembrar que o seu acesso mensal de 1 tela vence em *3 dias*.\n\nPara renovar seu sinal antecipadamente por mais 30 dias e evitar o bloqueio automático, use o código *PIX Copia e Cola* padrão de *R$ 35,00* abaixo:`;
                     await sock.sendMessage(cliente.whatsapp, { text: textAlerta });
                     await sock.sendMessage(cliente.whatsapp, { text: `\`${pixCode}\`` });
                 }
@@ -177,7 +155,7 @@ app.get('/qr', (req, res) => {
     }
 });
 
-// Inicialização do Servidor
+// Inicialização do Servidor na porta correta do Railway
 app.listen(PORT, () => {
     console.log(`Porta do Railway aberta: ${PORT}`);
     iniciarBot();
