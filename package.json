@@ -1,5 +1,5 @@
 {
-  "name": "iptv-family-bot",
+  "name": "familia-bot-24h",
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
@@ -7,11 +7,12 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.5.0",
+    "@whiskeysockets/baileys": "^6.6.0",
     "axios": "^1.6.0",
+    "cron": "^3.1.6",
     "express": "^4.19.2",
-    "puppeteer": "^21.5.0",
     "node-cron": "^3.0.3",
-    "pino": "^9.1.0"
+    "pino": "^9.0.0",
+    "puppeteer": "^22.6.0"
   }
 }
