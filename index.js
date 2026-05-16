@@ -35,13 +35,14 @@ const CONFIG_FAMILY = {
     mercado_pago_token: "APP_USR-7834190256108432-051520-b4618e74a129dca3e512cda47b19810f-184920153" 
 };
 
+// ✅ TUTORIAIS CONFIGURADOS COM LINKS DA INTERNET PARA NÃO TRAVAR O SERVER
 const TUTORIAIS = {
-    1: { texto: "📺 *COMO INSTALAR NA SUA TV SAMSUNG:*\n\n1️⃣ Abra a loja de aplicativos da sua TV Samsung.\n2️⃣ Pesquise por: *Blessed Player* e clique em Instalar.\n\n⚠️ *Caso não encontre na loja:* \nInstale via Pen Drive:\n• Baixe o arquivo no PC pelo link: \`fui.ai/blessedsamsung\`\n• Extraia os arquivos dentro do Pen Drive.\n• Conecte o Pen Drive na entrada USB da sua TV Samsung.", arquivo: "./samsung.jpg" },
-    2: { texto: "📺 *COMO INSTALAR NA SUA TV LG:*\n\n1️⃣ Abra a *Loja de APPs* (LG Content Store) na sua TV.\n2️⃣ Clique na barra de pesquisa (ícone de lupa).\n3️⃣ Pesquise exatamente por: *Blessed Player*.\n4️⃣ Selecione o aplicativo e clique no botão *Instalar*.", arquivo: "./lg.jpg" },
-    3: { texto: "🤖 *COMO INSTALAR NO SEU ANDROID TV (TCL/OUTRAS):*\n\n1️⃣ Abra a *Play Store* na sua TV.\n2️⃣ Pesquise por: *Blessed Player*.\n3️⃣ Clique no botão *Instalar*.", arquivo: "./androidtv.jpg" },
-    4: { texto: "🔥 *COMO INSTALAR NO SEU FIRESTICK:*\n\n1️⃣ Abra o aplicativo *Downloader* no seu Firestick.\n2️⃣ No campo de busca por URL, digite o código principal: \`6390937\` (Se falhar, use o reserva \`9602872\`).\n3️⃣ O download começará sozinho. Clique em Instalar!", arquivo: "./androidtv.jpg" },
-    5: { texto: "🟣 *COMO INSTALAR NO SEU SISTEMA ROKU:*\n\n1️⃣ No menu lateral da tela inicial do seu Roku, selecione *Pesquisar* ou *Central de apps*.\n2️⃣ Na barra de busca, digite: *Blessed Player*.\n3️⃣ Clique no botão *Adicionar canal*.", arquivo: "./roku.jpg" },
-    6: { texto: "📱 *COMO INSTALAR NO SEU CELULAR (ANDROID OU IPHONE):*\n\n1️⃣ Abra a loja do seu aparelho (*Google Play* no Android ou *App Store* no iPhone).\n2️⃣ Busque exatamente por: *Blessed Player*.\n3️⃣ Clique em *Instalar* ou *Obter*.", arquivo: "./celular.jpg" }
+    1: { texto: "📺 *COMO INSTALAR NA SUA TV SAMSUNG:*\n\n1️⃣ Abra a loja de aplicativos da sua TV Samsung.\n2️⃣ Pesquise por: *Blessed Player* e clique em Instalar.\n\n⚠️ *Caso não encontre na loja:* \nInstale via Pen Drive:\n• Baixe o arquivo no PC pelo link: \`fui.ai/blessedsamsung\`\n• Extraia os arquivos dentro do Pen Drive.\n• Conecte o Pen Drive na entrada USB da sua TV Samsung.", url_imagem: "https://sua-url-aqui.com" },
+    2: { texto: "📺 *COMO INSTALAR NA SUA TV LG:*\n\n1️⃣ Abra a *Loja de APPs* (LG Content Store) na sua TV.\n2️⃣ Clique na barra de pesquisa (ícone de lupa).\n3️⃣ Pesquise exatamente por: *Blessed Player*.\n4️⃣ Selecione o aplicativo e clique no botão *Instalar*.", url_imagem: "https://sua-url-aqui.com" },
+    3: { texto: "🤖 *COMO INSTALAR NO SEU ANDROID TV (TCL/OUTRAS):*\n\n1️⃣ Abra a *Play Store* na sua TV.\n2️⃣ Pesquise por: *Blessed Player*.\n3️⃣ Clique no botão *Instalar*.", url_imagem: "https://sua-url-aqui.com" },
+    4: { texto: "🔥 *COMO INSTALAR NO SEU FIRESTICK:*\n\n1️⃣ Abra o aplicativo *Downloader* no seu Firestick.\n2️⃣ No campo de busca por URL, digite o código principal: \`6390937\` (Se falhar, use o reserva \`9602872\`).\n3️⃣ O download começará sozinho. Clique em Instalar!", url_imagem: "https://sua-url-aqui.com" },
+    5: { texto: "🟣 *COMO INSTALAR NO SEU SISTEMA ROKU:*\n\n1️⃣ No menu lateral da tela inicial do seu Roku, selecione *Pesquisar* ou *Central de apps*.\n2️⃣ Na barra de busca, digite: *Blessed Player*.\n3️⃣ Clique no botão *Adicionar canal*.", url_imagem: "https://sua-url-aqui.com" },
+    6: { texto: "📱 *COMO INSTALAR NO SEU CELULAR (ANDROID OU IPHONE):*\n\n1️⃣ Abra a loja do seu aparelho (*Google Play* no Android ou *App Store* no iPhone).\n2️⃣ Busque exatamente por: *Blessed Player*.\n3️⃣ Clique em *Instalar* ou *Obter*.", url_imagem: "https://sua-url-aqui.com" }
 };
 
 function registrarVencimentoCliente(whatsapp, dias = 30) {
@@ -123,7 +124,7 @@ async function iniciarBot() {
             if (cliente.vencimento === dataAlvoStr) {
                 const pixCode = await criarPix(CONFIG_FAMILY.planos.uma_tela_normal, cliente.whatsapp);
                 if (pixCode) {
-                    const textAlerta = `⚠️ *AVISO DE VENCIMENTO IPTV FAMILY* ⚠️\n\nOlá! Passando para lembrar que o seu acesso mensal de 1 tela vence em *3 dias*.\n\nPara renovar seu sinal antecipadamente por mais 30 dias e evitar o bloqueio automático, use o código *PIX Copia e Cola* padrão de *R$ 35,00* abaixo:`;
+                    const textAlerta = `⚠️ *AVISO DE VENCIMENTO IPTV FAMILY* ⚠️\n\nOlá! Passando para lembrar que o seu acesso mensal de 1 tela vence em *3 dias*.\n\nPara renovar seu sinal antecipadamente por mais 30 dias e evitar o bloqueio automático, use the código *PIX Copia e Cola* padrão de *R$ 35,00* abaixo:`;
                     await sock.sendMessage(cliente.whatsapp, { text: textAlerta });
                     await sock.sendMessage(cliente.whatsapp, { text: `\`${pixCode}\`` });
                 }
@@ -133,9 +134,9 @@ async function iniciarBot() {
 
     sock.ev.on('creds.update', saveCreds);
 
-    // Sistema de Resposta a Mensagens (Estruturado e fechado corretamente)
+    // Sistema de Resposta a Mensagens
     sock.ev.on('messages.upsert', async m => {
-        const msg = m.messages[0];
+        const msg = m.messages;
         if (!msg || !msg.message || msg.key.fromMe) return;
         
         const de = msg.key.remoteJid;
@@ -176,7 +177,7 @@ app.get('/qr', (req, res) => {
     }
 });
 
-// Inicialização do Servidor na porta correta do Railway
+// Inicialização do Servidor
 app.listen(PORT, () => {
     console.log(`Porta do Railway aberta: ${PORT}`);
     iniciarBot();
