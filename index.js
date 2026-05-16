@@ -54,7 +54,6 @@ function registrarVencimentoCliente(whatsapp, dias = 30) {
     fs.writeFileSync(ARQUIVO_CLIENTES, JSON.stringify(listaFiltrada, null, 2));
 }
 
-// ✅ Modificado temporariamente para não quebrar o Railway sem navegador
 async function executarCriacaoTeste() {
     return null;
 }
@@ -82,16 +81,10 @@ async function iniciarBot() {
     // Captura e armazena o QR Code gerado pelo Baileys
     sock.ev.on('connection.update', (update) => {
         const { qr } = update;
-        if (qr) ultimoQrCode = qr;
+        if (qr) {
+            ultimoQrCode = qr;
+        }
     });
-
-    if (!sock.authState.creds.registered) {
-        const numeroDoBot = "5521980236044"; 
-        setTimeout(async () => {
-            let code = await sock.requestPairingCode(numeroDoBot);
-            console.log(`\n=========================================\n📌 SEU CÓDIGO DO WHATSAPP: ${code}\n=========================================\n`);
-        }, 5000);
-    }
 
     cron.schedule('0 9 * * *', async () => {
         const clientes = JSON.parse(fs.readFileSync(ARQUIVO_CLIENTES));
