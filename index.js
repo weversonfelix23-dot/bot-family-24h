@@ -5,10 +5,6 @@ import fs from 'fs';
 import cron from 'node-cron';
 import express from 'express';
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-let ultimoQrCode = ""; // ✅ Variável global para armazenar o QR Code
-
 const historicoTestes = new Set(); 
 const ARQUIVO_CLIENTES = './clientes.json';
 
@@ -102,12 +98,6 @@ async function iniciarBot() {
     });
     const testesPendentesDeDispositivo = new Map();
 
-    // ✅ Alimenta a variável global toda vez que o Baileys gerar ou atualizar o QR Code
-    sock.ev.on('connection.update', (update) => {
-        const { qr } = update;
-        if (qr) ultimoQrCode = qr;
-    });
-
     if (!sock.authState.creds.registered) {
         const numeroDoBot = "5521980236044"; // ✅ SEU NÚMERO DO BOT FILTRADO E CORRIGIDO
         setTimeout(async () => {
@@ -154,29 +144,3 @@ async function iniciarBot() {
                 return; 
             }
         }
-    });
-}
-
-// ✅ Rotas do Express Corrigidas e Atualizadas usando Template Literals corretos
-app.get('/', (req, res) => {
-    res.send('<h1>Bot IPTV Family Ativo!</h1><p>Para ver o QR Code de conexão, acesse: <strong>/qr</strong> no final do link.</p>');
-});
-
-app.get('/qr', (req, res) => {
-    if (!ultimoQrCode) {
-        res.send('<h3>Aguardando o WhatsApp gerar um QR Code... Recarregue a página em 5 segundos!</h3>');
-    } else {
-        res.send(`
-            <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
-                <h2>Escaneie com seu WhatsApp Business:</h2>
-                <img src="https://qrserver.com{encodeURIComponent(ultimoQrCode)}" alt="QR Code" />
-                <p>Mantenha a página aberta até conectar.</p>
-            </div>
-        `);
-    }
-});
-
-app.listen(PORT, () => {
-    console.log(`Porta do Railway aberta: ${PORT}`);
-    iniciarBot();
-});
