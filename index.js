@@ -71,63 +71,78 @@ async function criarPix(valor, idCliente) {
 }
 
 async function iniciarBot() {
-    // Alterado para garantir uma nova tentativa limpa de conexão
-    const { state, saveCreds } = await useMultiFileAuthState('sessao_family_final');
-    const sock = makeWASocket({ 
-        auth: state, 
-        printQRInTerminal: true,
-        logger: (await import('pino')).default({ level: 'silent' })
-    });
-
-    // Captura e armazena o QR Code gerado pelo Baileys
-    sock.ev.on('connection.update', (update) => {
-        const { qr } = update;
-        if (qr) {
-            ultimoQrCode = qr;
-        }
-    });
-
-    cron.schedule('0 9 * * *', async () => {
-        const clientes = JSON.parse(fs.readFileSync(ARQUIVO_CLIENTES));
-        const alvoData = new Date();
-        alvoData.setDate(alvoData.getDate() + 3);
-        const dataAlvoStr = alvoData.toISOString().split('T');
-        for (const cliente of clientes) {
-            if (cliente.vencimento === dataAlvoStr) {
-                const pixCode = await criarPix(CONFIG_FAMILY.planos.uma_tela_normal, cliente.whatsapp);
-                if (pixCode) {
-                    const textAlerta = `⚠️ *AVISO DE VENCIMENTO IPTV FAMILY* ⚠️\n\nOlá! Passando para lembrar que o seu acesso mensal de 1 tela vence em *3 dias*.\n\nPara renovar seu sinal antecipadamente por mais 30 dias e evitar o bloqueio automático, use o código *PIX Copia e Cola* padrão de *R$ 35,00* abaixo:`;
-                    await sock.sendMessage(cliente.whatsapp, { text: textAlerta });
-                    await sock.sendMessage(cliente.whatsapp, { text: `\`${pixCode}\`` });
-                }
-            }
-        }
-    });
-
-    sock.ev.on('creds.update', saveCreds);
-
-    // Sistema de Resposta a Mensagens
-    sock.ev.on('messages.upsert', async m => {
-        const msg = m.messages;
-        if (!msg || !msg.message || msg.key.fromMe) return;
+    try {
+        // ✅ Forçando a gravação na pasta temporária /tmp/ do Linux para evitar bloqueio do Railway
+        const { state, saveCreds } = await useMultiFileAuthState('/tmp/sessao_family_absoluta');
         
-        const de = msg.key.remoteJid;
-        const respostaCliente = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim().toLowerCase();
+        const sock = makeWASocket({ 
+            auth: state, 
+            printQRInTerminal: true,
+            logger: (await import('pino')).default({ level: 'debug' }) // Aumentado log para depurar no terminal
+        });
 
-        if (respostaCliente.startsWith('#pix ')) {
-            if (de === CONFIG_FAMILY.dono_numero || msg.key.participant === CONFIG_FAMILY.dono_numero) {
-                const valorInformado = parseFloat(respostaCliente.replace('#pix ', '').replace(',', '.'));
-                if (!isNaN(valorInformado) && valorInformado > 0) {
-                    await sock.sendMessage(de, { text: `⏳ Gerando PIX no valor personalizado de *R$ ${valorInformado.toFixed(2)}*...` });
-                    const pixCode = await criarPix(valorInformado, de);
+        sock.ev.on('connection.update', (update) => {
+            const { qr, connection, lastDisconnect } = update;
+            
+            if (qr) {
+                console.log("✅ NOVO QR CODE GERADO COM SUCESSO!");
+                ultimoQrCode = qr;
+            }
+
+            if (connection === 'close') {
+                console.log("⚠️ Conexão fechada. Tentando reconectar...", lastDisconnect?.error);
+                iniciarBot();
+            } else if (connection === 'open') {
+                console.log("🚀 CONECTADO COM SUCESSO AO WHATSAPP!");
+                ultimoQrCode = "";
+            }
+        });
+
+        sock.ev.on('creds.update', saveCreds);
+
+        cron.schedule('0 9 * * *', async () => {
+            const clientes = JSON.parse(fs.readFileSync(ARQUIVO_CLIENTES));
+            const alvoData = new Date();
+            alvoData.setDate(alvoData.getDate() + 3);
+            const dataAlvoStr = alvoData.toISOString().split('T');
+            for (const cliente of clientes) {
+                if (cliente.vencimento === dataAlvoStr) {
+                    const pixCode = await criarPix(CONFIG_FAMILY.planos.uma_tela_normal, cliente.whatsapp);
                     if (pixCode) {
-                        await sock.sendMessage(de, { text: `📱 *PIX COPIA E COLA GERADO (Valor: R$ ${valorInformado.toFixed(2)}):*\n\n\`${pixCode}\`\n\n_Efetue o pagamento no seu banco para processar a sua renovação._` });
-                        registrarVencimentoCliente(de, 30);
+                        const textAlerta = `⚠️ *AVISO DE VENCIMENTO IPTV FAMILY* ⚠️\n\nOlá! Passando para lembrar que o seu acesso mensal de 1 tela vence em *3 dias*.\n\nPara renovar seu sinal antecipadamente por mais 30 dias e evitar o bloqueio automático, use o código *PIX Copia e Cola* padrão de *R$ 35,00* abaixo:`;
+                        await sock.sendMessage(cliente.whatsapp, { text: textAlerta });
+                        await sock.sendMessage(cliente.whatsapp, { text: `\`${pixCode}\`` });
                     }
                 }
             }
-        }
-    });
+        });
+
+        // Sistema de Resposta a Mensagens
+        sock.ev.on('messages.upsert', async m => {
+            const msg = m.messages;
+            if (!msg || !msg.message || msg.key.fromMe) return;
+            
+            const de = msg.key.remoteJid;
+            const respostaCliente = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim().toLowerCase();
+
+            if (respostaCliente.startsWith('#pix ')) {
+                if (de === CONFIG_FAMILY.dono_numero || msg.key.participant === CONFIG_FAMILY.dono_numero) {
+                    const valorInformado = parseFloat(respostaCliente.replace('#pix ', '').replace(',', '.'));
+                    if (!isNaN(valorInformado) && valorInformado > 0) {
+                        await sock.sendMessage(de, { text: `⏳ Gerando PIX no valor personalizado de *R$ ${valorInformado.toFixed(2)}*...` });
+                        const pixCode = await criarPix(valorInformado, de);
+                        if (pixCode) {
+                            await sock.sendMessage(de, { text: `📱 *PIX COPIA E COLA GERADO (Valor: R$ ${valorInformado.toFixed(2)}):*\n\n\`${pixCode}\`\n\n_Efetue o pagamento no seu banco para processar a sua renovação._` });
+                            registrarVencimentoCliente(de, 30);
+                        }
+                    }
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("❌ ERRO FATAL AO INICIAR O BAILEYS:", error);
+    }
 }
 
 // Rotas Web para monitoramento e conexão do QR Code externo
@@ -137,11 +152,10 @@ app.get('/', (req, res) => {
 
 app.get('/qr', (req, res) => {
     if (!ultimoQrCode) {
-        // Injetado script de recarregamento automático a cada 3 segundos
         res.send(`
             <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
                 <h3>Aguardando o WhatsApp gerar um QR Code... Esta página irá atualizar sozinha!</h3>
-                <script>setTimeout(() => { window.location.reload(); }, 3000);</script>
+                <script>setTimeout(() => { window.location.reload(); }, 4000);</script>
             </div>
         `);
     } else {
