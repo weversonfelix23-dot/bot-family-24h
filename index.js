@@ -1,11 +1,14 @@
 const {
     default: makeWASocket,
     useMultiFileAuthState,
+    DisconnectReason,
 } = require("@whiskeysockets/baileys");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const axios = require("axios");
 const fs = require("fs");
 const cron = require("node-cron");
+const express = require("express");
+const QRCode = require("qrcode");
 
 const historicoTestes = new Set();
 const ARQUIVO_CLIENTES = "./clientes.json";
@@ -18,11 +21,11 @@ const CONFIG_FAMILY = {
     nome: "Assistente Family 24h",
     dono_numero: "5521980236044@s.whatsapp.net",
     servidores: {
-        principal: "https://krypthon-vip.ryzen.fun",
-        reserva1: "https://sigma.vin",
-        reserva2: "https://zeropainel.online",
+        principal: "[krypthon-vip.ryzen.fun](https://krypthon-vip.ryzen.fun)",
+        reserva1: "[sigma.vin](https://sigma.vin)",
+        reserva2: "[zeropainel.online](https://zeropainel.online)",
     },
-    link_indicacao_revenda: "https://ryzen.funrs",
+    link_indicacao_revenda: "[ryzen.funrs](https://ryzen.funrs)",
     planos: {
         uma_tela_normal: 35.0,
         uma_tela_desconto: 25.0,
@@ -33,9 +36,74 @@ const CONFIG_FAMILY = {
         "APP_USR-1676815975878482-051514-f400a23f15ffe521f624038124e83022-544855967",
 };
 
+// ============ ESTADO DO QR ============
+let qrAtual = null;
+let qrDataUrl = null;
+let conectado = false;
+
+// ============ SERVIDOR EXPRESS ============
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => res.redirect("/whatsapp-bot/qr"));
+
+app.get("/whatsapp-bot/qr", (req, res) => {
+    if (conectado) {
+        return res.send(`
+            <html><head><meta charset="utf-8"><title>WhatsApp Bot</title></head>
+            <body style="font-family:sans-serif;text-align:center;padding:40px;background:#0b141a;color:#e9edef;">
+                <h1>✅ Bot conectado!</h1>
+                <p>O WhatsApp já está autenticado. Não precisa escanear novamente.</p>
+            </body></html>
+        `);
+    }
+    if (!qrDataUrl) {
+        return res.send(`
+            <html><head><meta charset="utf-8"><title>WhatsApp Bot</title>
+            <meta http-equiv="refresh" content="3"></head>
+            <body style="font-family:sans-serif;text-align:center;padding:40px;background:#0b141a;color:#e9edef;">
+                <h1>⏳ Gerando QR Code...</h1>
+                <p>Aguarde alguns segundos. A página recarrega sozinha.</p>
+            </body></html>
+        `);
+    }
+    res.send(`
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Escaneie o QR — WhatsApp Bot</title>
+            <meta http-equiv="refresh" content="20">
+        </head>
+        <body style="font-family:sans-serif;text-align:center;padding:30px;background:#0b141a;color:#e9edef;">
+            <h1>📱 Escaneie o QR Code com o WhatsApp</h1>
+            <p>Abra o WhatsApp → Aparelhos conectados → Conectar um aparelho</p>
+            <img src="${qrDataUrl}" alt="QR Code" style="background:#fff;padding:16px;border-radius:12px;max-width:340px;width:90%;"/>
+            <p style="opacity:.7;font-size:13px;">A página recarrega automaticamente a cada 20s.</p>
+        </body>
+        </html>
+    `);
+});
+
+app.get("/whatsapp-bot/qr.png", async (req, res) => {
+    if (!qrAtual) return res.status(404).send("QR ainda não disponível");
+    res.type("png");
+    const png = await QRCode.toBuffer(qrAtual, { width: 400, margin: 2 });
+    res.send(png);
+});
+
+app.get("/whatsapp-bot/status", (req, res) => {
+    res.json({ conectado, temQr: !!qrAtual });
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`🌐 Servidor web rodando na porta ${PORT}`);
+    console.log(`🔗 Acesse: /whatsapp-bot/qr`);
+});
+
+// ============ TUTORIAIS ============
 const TUTORIAIS = {
     1: {
-        texto: "📺 COMO INSTALAR NA SUA TV SAMSUNG:\n\n1️⃣ Abra a loja de aplicativos da sua TV Samsung.\n2️⃣ Pesquise por: Blessed Player e clique em Instalar.\n\n⚠️ Caso não encontre na loja: \nInstale via Pen Drive:\n• Baixe o arquivo no PC pelo link: fui.ai/blessedsamsung\n• Extraia os arquivos dentro do Pen Drive.\n• Conecte o Pen Drive na entrada USB da sua TV Samsung.",
+        texto: "📺 COMO INSTALAR NA SUA TV SAMSUNG:\n\n1️⃣ Abra a loja de aplicativos da sua TV Samsung.\n2️⃣ Pesquise por: Blessed Player e clique em Instalar.\n\n⚠️ Caso não encontre na loja:\nInstale via Pen Drive:\n• Baixe o arquivo no PC pelo link: fui.ai/blessedsamsung\n• Extraia os arquivos dentro do Pen Drive.\n• Conecte o Pen Drive na entrada USB da sua TV Samsung.",
         arquivo: "./samsung.jpg",
     },
     2: {
@@ -64,10 +132,9 @@ function registrarVencimentoCliente(whatsapp, dias = 30) {
     const clientes = JSON.parse(fs.readFileSync(ARQUIVO_CLIENTES));
     const dataVencimento = new Date();
     dataVencimento.setDate(dataVencimento.getDate() + dias);
-
     const listaFiltrada = clientes.filter((c) => c.whatsapp !== whatsapp);
     listaFiltrada.push({
-        whatsapp: whatsapp,
+        whatsapp,
         vencimento: dataVencimento.toISOString().split("T")[0],
     });
     fs.writeFileSync(ARQUIVO_CLIENTES, JSON.stringify(listaFiltrada, null, 2));
@@ -76,6 +143,9 @@ function registrarVencimentoCliente(whatsapp, dias = 30) {
 async function executarCriacaoTeste() {
     const browser = await puppeteer.launch({
         headless: true,
+        executablePath:
+            process.env.PUPPETEER_EXECUTABLE_PATH ||
+            "/usr/bin/chromium-browser",
         args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
@@ -87,20 +157,16 @@ async function executarCriacaoTeste() {
         await page.type('input[type="password"]', "Weverson12@");
         await page.click('button[type="submit"]');
         await page.waitForNavigation();
-
         await page.goto(
             CONFIG_FAMILY.servidores.principal + "#/customers/create-test",
         );
         await page.waitForSelector(".btn-generate-test");
         await page.click(".btn-generate-test");
-
-        const dados = await page.evaluate(() => {
-            return {
-                user: document.querySelector(".username")?.innerText || "Erro",
-                pass: document.querySelector(".password")?.innerText || "Erro",
-                m3u: document.querySelector(".m3u-link")?.innerText || "Erro",
-            };
-        });
+        const dados = await page.evaluate(() => ({
+            user: document.querySelector(".username")?.innerText || "Erro",
+            pass: document.querySelector(".password")?.innerText || "Erro",
+            m3u: document.querySelector(".m3u-link")?.innerText || "Erro",
+        }));
         await browser.close();
         return dados;
     } catch (e) {
@@ -112,7 +178,7 @@ async function executarCriacaoTeste() {
 async function criarPix(valor, idCliente) {
     try {
         const response = await axios.post(
-            "https://api.mercadopago.com/v1/payments",
+            "[api.mercadopago.com](https://api.mercadopago.com/v1/payments)",
             {
                 transaction_amount: valor,
                 description: "Pagamento IPTV Family",
@@ -140,20 +206,41 @@ async function iniciarBot() {
         logger: (await import("pino")).default({ level: "silent" }),
     });
 
-    if (!sock.authState.creds.registered) {
-        const numeroDoBot = "5521980236044"; // ⚠️ MUDE PARA O NÚMERO DO SEU BOT (COM 55 + DDD)
-        setTimeout(async () => {
-            let code = await sock.requestPairingCode(numeroDoBot);
-            console.log(`\n📌 SEU CÓDIGO DE ATIVAÇÃO DO WHATSAPP É: ${code}\n`);
-        }, 3000);
-    }
+    sock.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect, qr } = update;
+
+        if (qr) {
+            qrAtual = qr;
+            qrDataUrl = await QRCode.toDataURL(qr, { width: 400, margin: 2 });
+            conectado = false;
+            console.log(
+                "📲 Novo QR gerado — acesse /whatsapp-bot/qr para escanear",
+            );
+        }
+
+        if (connection === "open") {
+            conectado = true;
+            qrAtual = null;
+            qrDataUrl = null;
+            console.log("✅ WhatsApp conectado com sucesso!");
+        }
+
+        if (connection === "close") {
+            conectado = false;
+            const motivo = lastDisconnect?.error?.output?.statusCode;
+            const devoReconectar = motivo !== DisconnectReason.loggedOut;
+            console.log("❌ Conexão fechada. Reconectar?", devoReconectar);
+            if (devoReconectar) iniciarBot();
+        }
+    });
+
+    sock.ev.on("creds.update", saveCreds);
 
     const testesPendentesDeDispositivo = new Map();
 
     cron.schedule("0 9 * * *", async () => {
         console.log("🔍 Buscando clientes com vencimento próximo...");
         const clientes = JSON.parse(fs.readFileSync(ARQUIVO_CLIENTES));
-
         const alvoData = new Date();
         alvoData.setDate(alvoData.getDate() + 3);
         const dataAlvoStr = alvoData.toISOString().split("T")[0];
@@ -177,7 +264,6 @@ async function iniciarBot() {
         }
     });
 
-    sock.ev.on("creds.update", saveCreds);
     sock.ev.on("messages.upsert", async (m) => {
         const msg = m.messages[0];
         if (!msg.message || msg.key.fromMe) return;
@@ -342,7 +428,6 @@ async function iniciarBot() {
                     timeZone: "America/Sao_Paulo",
                 }),
             );
-
             const diaSemana = dataBrasilia.getDay();
             const horaAtual = dataBrasilia.getHours();
             let expedienteAberto = false;
