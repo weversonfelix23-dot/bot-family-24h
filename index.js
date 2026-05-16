@@ -71,8 +71,8 @@ async function criarPix(valor, idCliente) {
 }
 
 async function iniciarBot() {
-    // ✅ Alterado para 'sessao_family_nova' para limpar sessões antigas presas
-    const { state, saveCreds } = await useMultiFileAuthState('sessao_family_nova');
+    // Alterado para garantir uma nova tentativa limpa de conexão
+    const { state, saveCreds } = await useMultiFileAuthState('sessao_family_final');
     const sock = makeWASocket({ 
         auth: state, 
         printQRInTerminal: true,
@@ -137,9 +137,14 @@ app.get('/', (req, res) => {
 
 app.get('/qr', (req, res) => {
     if (!ultimoQrCode) {
-        res.send('<div style="text-align:center; margin-top:50px; font-family:sans-serif;"><h3>Aguardando o WhatsApp gerar um QR Code... Recarregue a página em 5 segundos!</h3></div>');
+        // Injetado script de recarregamento automático a cada 3 segundos
+        res.send(`
+            <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
+                <h3>Aguardando o WhatsApp gerar um QR Code... Esta página irá atualizar sozinha!</h3>
+                <script>setTimeout(() => { window.location.reload(); }, 3000);</script>
+            </div>
+        `);
     } else {
-        // ✅ URL da API corrigida com crases e parâmetro correto
         res.send(`
             <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
                 <h2>Escaneie com seu WhatsApp Business:</h2>
