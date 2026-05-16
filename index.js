@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState } from '@whiskeysockets/baileys';
+import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import puppeteer from 'puppeteer';
 import axios from 'axios';
 import fs from 'fs';
@@ -72,26 +72,30 @@ async function criarPix(valor, idCliente) {
 
 async function iniciarBot() {
     try {
-        // ✅ Forçando a gravação na pasta temporária /tmp/ do Linux para evitar bloqueio do Railway
-        const { state, saveCreds } = await useMultiFileAuthState('/tmp/sessao_family_absoluta');
+        // ✅ Busca a versão mais atualizada do WhatsApp Web para evitar o erro 405 de recusa do servidor
+        const { version, isLatest } = await fetchLatestBaileysVersion();
+        console.log(`🤖 Usando a versão do WhatsApp Web: ${version.join('.')}, última versão: ${isLatest}`);
+
+        const { state, saveCreds } = await useMultiFileAuthState('/tmp/sessao_family_absoluta_v2');
         
         const sock = makeWASocket({ 
+            version, // ✅ Força a conexão a usar a versão correta
             auth: state, 
             printQRInTerminal: true,
-            logger: (await import('pino')).default({ level: 'debug' }) // Aumentado log para depurar no terminal
+            logger: (await import('pino')).default({ level: 'silent' })
         });
 
         sock.ev.on('connection.update', (update) => {
-            const { qr, connection, lastDisconnect } = update;
+            const { qr, connection } = update;
             
             if (qr) {
-                console.log("✅ NOVO QR CODE GERADO COM SUCESSO!");
+                console.log("✅ NOVO QR CODE GERADO!");
                 ultimoQrCode = qr;
             }
 
             if (connection === 'close') {
-                console.log("⚠️ Conexão fechada. Tentando reconectar...", lastDisconnect?.error);
-                iniciarBot();
+                console.log("⚠️ Conexão fechada. Tentando reconectar...");
+                setTimeout(() => { iniciarBot(); }, 5000); // Aguarda 5 segundos antes de tentar de novo
             } else if (connection === 'open') {
                 console.log("🚀 CONECTADO COM SUCESSO AO WHATSAPP!");
                 ultimoQrCode = "";
