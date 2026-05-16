@@ -5,6 +5,11 @@ import fs from 'fs';
 import cron from 'node-cron';
 import express from 'express';
 
+// Inicialização do Servidor Web
+const app = express();
+const PORT = process.env.PORT || 3000;
+let ultimoQrCode = ""; // Armazena o código para a página web
+
 const historicoTestes = new Set(); 
 const ARQUIVO_CLIENTES = './clientes.json';
 
@@ -14,7 +19,7 @@ if (!fs.existsSync(ARQUIVO_CLIENTES)) {
 
 const CONFIG_FAMILY = {
     nome: "Assistente Family 24h",
-    dono_numero: "5521980236044@s.whatsapp.net", // ✅ SEU WHATSAPP MASTER CONFIGURADO
+    dono_numero: "5521980236044@s.whatsapp.net",
     servidores: {
         principal: "https://ryzen.fun",
         reserva1: "https://sigma.vin",
@@ -27,7 +32,6 @@ const CONFIG_FAMILY = {
         duas_telas: 60.00,
         taxa_revenda: 50.00
     },
-    // ✅ SEU ACCESS TOKEN DO MERCADO PAGO INJETADO
     mercado_pago_token: "APP_USR-7834190256108432-051520-b4618e74a129dca3e512cda47b19810f-184920153" 
 };
 
@@ -54,7 +58,6 @@ async function executarCriacaoTeste() {
     const page = await browser.newPage();
     try {
         await page.goto(CONFIG_FAMILY.servidores.principal, { waitUntil: 'networkidle2' });
-        // ✅ SEU SEU LOGIN E SENHA OFICIAIS DO PAINEL KRYPTHON INJETADOS
         await page.type('input[type="text"]', 'family_24h_vendas'); 
         await page.type('input[type="password"]', 'KrypthonMaster2024@'); 
         await page.click('button[type="submit"]');
@@ -96,10 +99,15 @@ async function iniciarBot() {
         printQRInTerminal: true,
         logger: (await import('pino')).default({ level: 'silent' })
     });
-    const testesPendentesDeDispositivo = new Map();
+
+    // Captura e armazena o QR Code gerado pelo Baileys
+    sock.ev.on('connection.update', (update) => {
+        const { qr } = update;
+        if (qr) ultimoQrCode = qr;
+    });
 
     if (!sock.authState.creds.registered) {
-        const numeroDoBot = "5521980236044"; // ✅ SEU NÚMERO DO BOT FILTRADO E CORRIGIDO
+        const numeroDoBot = "5521980236044"; 
         setTimeout(async () => {
             let code = await sock.requestPairingCode(numeroDoBot);
             console.log(`\n=========================================\n📌 SEU CÓDIGO DO WHATSAPP: ${code}\n=========================================\n`);
@@ -124,9 +132,12 @@ async function iniciarBot() {
     });
 
     sock.ev.on('creds.update', saveCreds);
+
+    // Sistema de Resposta a Mensagens (Estruturado e fechado corretamente)
     sock.ev.on('messages.upsert', async m => {
-        const msg = m.messages;
-        if (!msg.message || msg.key.fromMe) return;
+        const msg = m.messages[0];
+        if (!msg || !msg.message || msg.key.fromMe) return;
+        
         const de = msg.key.remoteJid;
         const respostaCliente = (msg.message.conversation || msg.message.extendedTextMessage?.text || "").trim().toLowerCase();
 
@@ -141,6 +152,32 @@ async function iniciarBot() {
                         registrarVencimentoCliente(de, 30);
                     }
                 }
-                return; 
             }
         }
+    });
+}
+
+// Rotas Web para monitoramento e conexão do QR Code externo
+app.get('/', (req, res) => {
+    res.send('<h1>Bot IPTV Family Ativo!</h1><p>Para ver o QR Code de conexão, acesse: <strong>/qr</strong> no final do link.</p>');
+});
+
+app.get('/qr', (req, res) => {
+    if (!ultimoQrCode) {
+        res.send('<div style="text-align:center; margin-top:50px; font-family:sans-serif;"><h3>Aguardando o WhatsApp gerar um QR Code... Recarregue a página em 5 segundos!</h3></div>');
+    } else {
+        res.send(`
+            <div style="text-align:center; margin-top:50px; font-family:sans-serif;">
+                <h2>Escaneie com seu WhatsApp Business:</h2>
+                <img src="https://qrserver.com{encodeURIComponent(ultimoQrCode)}" alt="QR Code" style="border:1px solid #ccc; padding:10px; border-radius:5px;" />
+                <p>Mantenha a página aberta até conectar.</p>
+            </div>
+        `);
+    }
+});
+
+// Inicialização do Servidor na porta correta do Railway
+app.listen(PORT, () => {
+    console.log(`Porta do Railway aberta: ${PORT}`);
+    iniciarBot();
+});
